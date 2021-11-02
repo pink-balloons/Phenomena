@@ -37,10 +37,10 @@ async function getOpenReports() {
     `);
     // then load the comments only for those reports, using a
     // WHERE "reportId" IN () clause
-    const { row: reports } = await client.query(`
+    const { row: comments } = await client.query(`
       SELECT * FROM comments
       WHERE "reportId" IN 
-      (${reports.map((report) => report.id).join(", ")});
+      (${reports.map((report) => report.id).join(", ")})
     `);
 
     // then, build two new properties on each report:
@@ -52,9 +52,9 @@ async function getOpenReports() {
       );
       // .isExpired if the expiration date is before now
       //    you can use Date.parse(report.expirationDate) < new Date()
+      delete report.password;
       report.isExpired = Date.parse(report.expirationDate) < new Date();
       // also, remove the password from all reports
-      delete report.password;
     });
     // finally, return the reports
     return reports;
@@ -123,7 +123,7 @@ async function _getReport(reportId) {
       `
     SELECT *
     FROM  reports
-    WHERE id=$1;
+    WHERE "id" =$1;
  `,
       [reportId]
     );
@@ -152,7 +152,7 @@ async function closeReport(reportId, password) {
       throw Error("not a report");
     }
     // If the passwords don't match, throw an error
-    if (password !== password) {
+    if (password !== report.password) {
       throw Error("Password incorrect");
     }
     // If it has already been closed, throw an error with a useful message
@@ -162,11 +162,12 @@ async function closeReport(reportId, password) {
     // Finally, update the report if there are no failures, as above
     await client.query(
       `UPDATE reports
-      SET "isOpen"='false'
+      SET "isOpen"= false
       WHERE id=$1;`,
       [reportId]
     );
     // Return a message stating that the report has been closed
+    return { message: "this report is close" };
   } catch (error) {
     throw error;
   }
@@ -185,6 +186,7 @@ async function closeReport(reportId, password) {
  */
 async function createReportComment(reportId, commentFields) {
   // read off the content from the commentFields
+  const { content } = commentFields;
 
   try {
     // grab the report we are going to be commenting on
@@ -194,7 +196,7 @@ async function createReportComment(reportId, commentFields) {
       throw Error("not a report");
     }
     // if it is not open, throw an error saying so
-    if (!report.isOpen) {
+    if (!report.isOpen === false) {
       throw Error("report are already closed");
     }
     // if the current date is past the expiration, throw an error saying so
@@ -202,10 +204,29 @@ async function createReportComment(reportId, commentFields) {
     if (Date.parse(report.expirationDate) < new Date()) {
       throw Error("Sorry time has expired");
     }
+
+    const {
+      rows: [comment],
+    } = await Client.query(
+      `
+    
+    INSERT INTO comments(content, 'reportId')
+    VALUES ($1, $2)
+    RETURNING *`,
+      [content, reportId]
+    );
+    await client.query(
+      `
+    UPDATE reports
+    SET 'expirationDate' = CURRENT_TIMESTAMP + interval '1 days'
+    WHERE id =$1
+    RETURNING *`,
+      [reportId]
+    );
     // all go: insert a comment
     // then update the expiration date to a day from now
     // finally, return the comment
-    return commentFields;
+    return comment;
   } catch (error) {
     throw error;
   }

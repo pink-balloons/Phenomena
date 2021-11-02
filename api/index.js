@@ -15,13 +15,21 @@ const {
 
 apiRouter.get(" /reports", async (req, res, next) => {
   try {
-    const reports = await getOpenReports();
-    res.send({ reports });
-  } catch (error) {
-    throw error;
+    const theReports = await getOpenReports();
+    const object = { reports: [] };
+    if (theReports) {
+      object.reports = theReports;
+      res.send(obj);
+    } else {
+      next({
+        name: "error",
+        message: "theReports",
+      });
+    }
+  } catch ({ name, message }) {
+    next({ name, message });
   }
 });
-
 /**
  * Set up a GET request for /reports
  *
@@ -39,25 +47,37 @@ apiRouter.get(" /reports", async (req, res, next) => {
  * - on success, it should send back the object returned by createReport
  * - on caught error, call next(error)
  */
-
 apiRouter.post("/reports", async (req, res, next) => {
   try {
-    const newReport = await createReport(req.body);
-    res.send({ newReport });
-  } catch (error) {
-    next(error);
+    const report = await createReport(req.body);
+    if (report) {
+      res.send(report);
+    } else {
+      next({
+        name: "error",
+        message: "createReport",
+      });
+    }
+  } catch ({ name, message }) {
+    next({ name, message });
   }
 });
 
-apiRouter.DELETE("/reports/:reportId", async (req, res, next) => {
+apiRouter.delete("/reports/:reportId", async (req, res, next) => {
   try {
-    const deleteReports = await closeReport(req.params);
-    res.send({ deleteReports });
-  } catch (error) {
-    throw error;
+    const reClose = await closeReport(req.params.reportId, req.body.password);
+    if (reClose) {
+      res.send(reClose);
+    } else {
+      next({
+        name: "error",
+        message: "closeReport",
+      });
+    }
+  } catch ({ name, message }) {
+    next({ name, message });
   }
 });
-
 /**
  * Set up a DELETE request for /reports/:reportId
  *
@@ -68,12 +88,19 @@ apiRouter.DELETE("/reports/:reportId", async (req, res, next) => {
  * - on caught error, call next(error)
  */
 
-apiRouter.POST(" /reports/:reportId/comments", async (req, res, next) => {
+apiRouter.post("/reports/:reportId/comments", async (req, res, next) => {
   try {
-    const thirdReport = await createReportComment(req.body);
-    res.send({ thirdReport });
-  } catch (error) {
-    next(error);
+    const comment = await createReportComment(req.params.reportId, req.body);
+    if (comment) {
+      res.send(comment);
+    } else {
+      next({
+        name: "comment error",
+        message: "problem with /api/reports/:id/comments",
+      });
+    }
+  } catch ({ name, message }) {
+    next({ name, message });
   }
 });
 /**
